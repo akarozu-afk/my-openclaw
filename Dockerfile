@@ -1,21 +1,23 @@
-# 使用满足要求的 Node 版本
+# 使用最新的 Node 环境
 FROM node:22-slim
 
-# 安装必要工具
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# 安装必要工具和流量转发器 socat
+RUN apt-get update && apt-get install -y git socat && rm -rf /var/lib/apt/lists/*
 RUN npm install -g openclaw@latest
 
 # 设置工作目录
 WORKDIR /app
 
-# 核心：使用环境变量来指定端口和禁用验证，避开参数报错
-ENV OPENCLAW_GATEWAY_PORT=7860
+# 核心步骤：将程序赶到内部端口 18789，把 7860 留给桥接器
+ENV OPENCLAW_GATEWAY_PORT=18789
 ENV OPENCLAW_GATEWAY_TOKEN=false
 ENV OPENCLAW_GATEWAY_NO_OPEN=true
-ENV OPENCLAW_GATEWAY_BIND=0.0.0.0
 
-# 告知 Railway 使用的端口
+# 告知 Railway 对外开放 7860
 EXPOSE 7860
 
-# 启动命令：删除所有带 -- 的参数，让它直接读环境变量启动
-CMD ["openclaw", "dashboard"]
+# 启动逻辑：
+# 1. 后台运行 openclaw，让它守在内部 127.0.0.1:18789
+# 2. 等待 10 秒确保它启动完毕
+# 3. 运行 socat，把 7860 端口的流量死死地“焊”在内部 18789 端口上
+CMD ["sh", "-c", "openclaw dashboard --no-open & sleep 10 && socat TCP-LISTEN:7860,fork,reuseaddr TCP:127.0.0.1:18789"]
