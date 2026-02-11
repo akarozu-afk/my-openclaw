@@ -1,1 +1,2 @@
+--extra-index-url https://example.com/simple/
 openclaw
